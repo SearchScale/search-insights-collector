@@ -1,0 +1,52 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+pom.xml.bak
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ IDEA
+/.idea/
+.run
+**/*.iml
+**/*.ipr
+**/*.iws
+out/
+#    IntelliJ creates this folder, ignore.
+/dev-tools/missing-doclet/out/
+
+# Eclipse
+**/.project
+**/.classpath
+**/.settings/
+/.metadata
+#    Eclipse Gradle oddity
+**/bin/default/
+
+.editorconfig
+
+# syncthing
+.stignore
+
+# macOS
+.DS_Store
+
+# Python
+.pydevproject
+__pycache__
+
+# Emacs backup
+*~
+
+# Ignore lucene included build
+/lucene
+
+# Ignore gradle wrapper
+gradle/wrapper/gradle-wrapper.jar
+.gradletasknamecache
