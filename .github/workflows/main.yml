@@ -16,11 +16,12 @@ jobs:
         
       - name: step 2 - Add artifacts to publish to the temp folder
         run: |
-          pwd
+          git clone https://github.com/searchscale/search-insights-collector
+          cd search-insights-collector
           ls
           mvn clean compile assembly:single
-          cp search-insights-collector.sh host-metrics.json downloads/.
-          cp target/search-insights-collector*jar downloads/.
+          cp search-insights-collector.sh host-metrics.json ../downloads/.
+          cp target/search-insights-collector*jar ../downloads/.
     
       - name: Step 3 - Use the Upload Artifact GitHub Action
         uses: actions/upload-artifact@v2
