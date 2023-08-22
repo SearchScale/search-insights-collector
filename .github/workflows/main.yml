@@ -16,7 +16,6 @@ jobs:
         
       - name: step 2 - Add artifacts to publish to the temp folder
         run: |
-          cd ..
           pwd
           ls
           mvn clean compile assembly:single
