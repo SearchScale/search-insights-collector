@@ -1,0 +1,17 @@
+{
+  "hosts": "cat /etc/hosts",
+  "hostname": "hostname",
+  "whoami": "whoami",
+  "processes": "ps aux",
+  "ports": "netstat -nap",
+  "ipaddr": "ip addr",
+  "ifconfig": "ifconfig",
+  "uname": "uname -a",
+  "top": "top -b -n 1",
+  "lscpu": "lscpu",
+  "cpuinfo": "cat /proc/cpuinfo",
+  "df": "df",
+  "fstab": "cat /etc/fstab",
+  "os-release": "cat /etc/os-release",
+  "env": "env"
+}
