@@ -25,6 +25,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryNTimes;
+import org.apache.zookeeper.KeeperException.NoNodeException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -73,6 +74,7 @@ public class SearchInsightsCollector
 
 		if (cmd.hasOption("collect-solr-metrics")) {
 			CuratorFramework client = CuratorFrameworkFactory.newClient(zkhost, new RetryNTimes(3, 500));
+			String clusterStateOutput = null;
 			client.start();
 			List<String> solrHostURLs = getSolrURLs(client);
 
@@ -86,13 +88,47 @@ public class SearchInsightsCollector
 						metricsOutput, Charset.forName("UTF-8"));
 
 				// System.out.println("Reading Cluster State through " + solrHost + "...");
-				String clusterStateOutput = fetchURL(solrHost + "/admin/collections?action=CLUSTERSTATUS");
+				clusterStateOutput = fetchURL(solrHost + "/admin/collections?action=CLUSTERSTATUS");
 				String clusterStateDir = outputDirectory + File.separatorChar + "solr" + File.separatorChar + "clusterstate";
 				new File(clusterStateDir).mkdirs();
 				FileUtils.write(
 						new File(clusterStateDir + File.separatorChar + (solrHost.replaceAll("/", "_"))),
 						clusterStateOutput, Charset.forName("UTF-8"));
 			}
+
+			if (clusterStateOutput != null) {
+				// Use the last fetched cluster state to now fetch segments and luke info:
+				Map<String, Object> cluster = new ObjectMapper().readValue(clusterStateOutput, Map.class);
+				Map<String, Map> collections = ((Map<String, Map>)cluster.get("cluster")).get("collections");
+				for (String collectionName: collections.keySet()) {
+					Map coll = collections.get(collectionName);
+					Map<String, Map> shards = (Map<String, Map>)coll.get("shards");
+					for (String shardName: shards.keySet()) {
+						Map<String, Map> shard = (Map<String, Map>) shards.get(shardName);
+						Map<String, Map<String, String>> replicas = (Map<String, Map<String, String>>)shard.get("replicas");
+						for (String coreNodeName: replicas.keySet()) {
+							Map<String, String> replica = replicas.get(coreNodeName);
+							boolean leader = Boolean.valueOf(replica.get("leader"));
+							if (!leader) continue;
+							String core = replica.get("core");
+							String baseUrl = replica.get("base_url");
+							// Fetch
+							String segmentsOutput = fetchURL(baseUrl + "/" + core + "/admin/segments");
+							String lukeOutput = fetchURL(baseUrl + "/" + core + "/admin/luke");
+							// Write
+							String coresInfoDir = outputDirectory + File.separatorChar + "solr" + File.separatorChar + "cores";
+							new File(coresInfoDir).mkdirs();
+							FileUtils.write(
+									new File(coresInfoDir + File.separatorChar + core+"_segments"),
+									segmentsOutput, Charset.forName("UTF-8"));
+							FileUtils.write(
+									new File(coresInfoDir + File.separatorChar + core+"_luke"),
+									lukeOutput, Charset.forName("UTF-8"));
+						}
+					}
+				}
+			}
+
 			client.close();
 		}    	
 	}
@@ -125,7 +161,10 @@ public class SearchInsightsCollector
 	private static List<String> getSolrURLs(CuratorFramework client)
 			throws Exception, JsonProcessingException, JsonMappingException {
 		List<String> solrHostURLs;
-		String clusterPropsStr = new String(client.getData().forPath("/clusterprops.json"), Charset.forName("UTF-8"));
+		String clusterPropsStr = "{}";
+		try {
+			clusterPropsStr = new String(client.getData().forPath("/clusterprops.json"), Charset.forName("UTF-8"));
+		} catch (NoNodeException ex) {}
 
 		Map<String, Object> clusterProps = new ObjectMapper().readValue(clusterPropsStr, Map.class);
 
