@@ -4,7 +4,7 @@
   <groupId>com.searchscale.insights</groupId>
   <artifactId>search-insights-collector</artifactId>
   <packaging>jar</packaging>
-  <version>0.6</version>
+  <version>0.7</version>
   <name>search-insights-collector</name>
   <url>http://maven.apache.org</url>
   <dependencies>
