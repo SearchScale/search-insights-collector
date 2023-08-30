@@ -65,7 +65,7 @@ then
 fi
 
 ######### COMPUTE THE SOLR and ZOOKEEPER METRICS ############
-java -cp search-insights-collector-0.6-jar-with-dependencies.jar:target/search-insights-collector-0.6-jar-with-dependencies.jar:. \
+java -cp search-insights-collector-0.7-jar-with-dependencies.jar:target/search-insights-collector-0.7-jar-with-dependencies.jar:. \
          com.searchscale.insights.SearchInsightsCollector -c $ZKHOST --output-directory $OUTDIR $JAVA_OPTS
 
 ############ PREPARE THE TARBALL ###############
