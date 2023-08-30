@@ -3,11 +3,11 @@ name: Publish GitHub Actions Artifacts
 
 on:
   push:
-    branches: [ main ]
+    tags:
+      - v\d+\.\d+\.\d+
 
 jobs:
-       
-  archive-build-artifacts:
+  Release:
     runs-on: ubuntu-latest
     steps:
 
@@ -23,8 +23,9 @@ jobs:
           cp search-insights-collector.sh host-metrics.json ../downloads/.
           cp target/search-insights-collector*jar ../downloads/.
     
-      - name: Step 3 - Use the Upload Artifact GitHub Action
-        uses: actions/upload-artifact@v2
-        with: 
-          name: assets-for-download
-          path: downloads
+      - name: Step 3 - Upload Assets
+        id: upload-assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: downloads/*
+
