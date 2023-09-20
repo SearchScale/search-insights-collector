@@ -10,11 +10,19 @@ Building
 Running
 -------
 
-    ./search-insights-collector.sh [--collect-host-metrics | --collect-zk-metrics | --collect-solr-metrics | --zkhost <zkhost>]
+    ./search-insights-collector.sh [--collect-host-metrics | --collect-zk-metrics | --collect-solr-metrics | --zkhost <zkhost> | -d <comma separated list of Solr hosts>]
 
-    Example:  ./search-insights-collector.sh --collect-host-metrics --collect-zk-metrics --collect-solr-metrics --zkhost zk1:2181
+    Examples:
+    
+    #  ./search-insights-collector.sh --collect-host-metrics --collect-zk-metrics --collect-solr-metrics --zkhost myzookeeperhost1:2181
 
-    Note: --zkhost parameter is necessary if using --collect-solr-metrics or --collect-zk-metrics
+    #  ./search-insights-collector.sh --collect-solr-metrics -d http://solr1:8983/solr,http://solr2:8983/solr
+
+    Notes:
+    
+    # --zkhost parameter is necessary if using --collect-zk-metrics
+    # To supply Solr URLs directly, use -d parameter. If not specified, Solr URLs will be looked up in live_nodes of ZooKeeper (if --zkhost is specified)
+    # To disable collection of logs and field metrics (Luke), you can add --disable-expensive-operations parameter
 
 Outputs
 -------
