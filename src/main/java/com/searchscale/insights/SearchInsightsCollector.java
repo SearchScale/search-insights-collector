@@ -45,6 +45,7 @@ public class SearchInsightsCollector
 		options.addOption("s", "collect-solr-metrics", false, "Collect Solr Metrics");
 		options.addOption("z", "collect-zk-metrics",   false, "Collect ZK Metrics");
 		options.addOption("e", "disable-expensive-operations",   false, "Don't collect Luke, logs etc.");
+		options.addOption("n", "cluster-name",   true, "Name of the cluster (no spaces)");
 		options.addRequiredOption("o", "output-directory", true, "Output Directory");
 
 		CommandLineParser parser = new DefaultParser();
