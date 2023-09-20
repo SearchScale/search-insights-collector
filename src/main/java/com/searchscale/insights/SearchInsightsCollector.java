@@ -55,6 +55,8 @@ public class SearchInsightsCollector
 
 	public static void main( String[] args ) throws Exception
 	{
+		
+		
 		CommandLine cmd = getParsedCLICommands(args);
 		String zkhost = getZKHost(cmd);
 		String directSolrUrls[] = getDirectSolrURLs(cmd);
@@ -68,6 +70,8 @@ public class SearchInsightsCollector
 			}
 		}
 
+		String collectorVersion = (SearchInsightsCollector.class.getPackage().getImplementationVersion());
+		FileUtils.write(new File(outputDirectory + File.separatorChar + "collector.properties"), "collector-version=" + collectorVersion + "\n", Charset.forName("UTF-8"));
 		if (cmd.hasOption("collect-zk-metrics")) {
 			if (zkhost == null || zkhost.isBlank()) throw new RuntimeException("--collect-zk-metrics was specified but ZK host (-c / --zkhost) not specified.");
 			System.out.println("Started collecting ZK metrics...");
