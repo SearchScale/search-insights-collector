@@ -8,8 +8,12 @@ import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,9 +40,12 @@ public class SearchInsightsCollector
 	private static CommandLine getParsedCLICommands(String[] args) throws ParseException {
 		Options options = new Options();
 		options.addOption("c", "zkhost", true, "ZK host (with chroot, if applicable), example: zk-host:2181 or zk-host1:2181/solr");
+		options.addOption("d", "direct-solr-urls", true, "Direct Solr URLs (comma separated), example: http://solr2:8983/solr,http://solr1:8983/solr");
 		options.addOption("h", "collect-host-metrics", false, "Collect Host Metrics");
 		options.addOption("s", "collect-solr-metrics", false, "Collect Solr Metrics");
 		options.addOption("z", "collect-zk-metrics",   false, "Collect ZK Metrics");
+		options.addOption("e", "disable-expensive-operations",   false, "Don't collect Luke, logs etc.");
+		options.addOption("n", "cluster-name",   true, "Name of the cluster (no spaces)");
 		options.addRequiredOption("o", "output-directory", true, "Output Directory");
 
 		CommandLineParser parser = new DefaultParser();
@@ -48,10 +55,13 @@ public class SearchInsightsCollector
 
 	public static void main( String[] args ) throws Exception
 	{
-		String zkhost = null;
-
+		
+		
 		CommandLine cmd = getParsedCLICommands(args);
-		zkhost = getZKHosts(cmd, zkhost);
+		String zkhost = getZKHost(cmd);
+		String directSolrUrls[] = getDirectSolrURLs(cmd);
+		boolean disableExpensiveOps = cmd.hasOption("disable-expensive-operations") ? true: false;
+		if (disableExpensiveOps) System.out.println("Expensive operations are disabled!");
 
 		String outputDirectory = cmd.getOptionValue("o");
 		if (!(new File(outputDirectory).exists() && new File(outputDirectory).isDirectory())) {
@@ -60,7 +70,11 @@ public class SearchInsightsCollector
 			}
 		}
 
+		String collectorVersion = (SearchInsightsCollector.class.getPackage().getImplementationVersion());
+		FileUtils.write(new File(outputDirectory + File.separatorChar + "collector.properties"), "collector-version=" + collectorVersion + "\n", Charset.forName("UTF-8"));
 		if (cmd.hasOption("collect-zk-metrics")) {
+			if (zkhost == null || zkhost.isBlank()) throw new RuntimeException("--collect-zk-metrics was specified but ZK host (-c / --zkhost) not specified.");
+			System.out.println("Started collecting ZK metrics...");
 			CuratorFramework client = CuratorFrameworkFactory.newClient(zkhost, new RetryNTimes(3, 500));
 			client.start();
 			Map<String, String> zkDump = dumpZkData(client, "/");
@@ -70,68 +84,64 @@ public class SearchInsightsCollector
 			new ObjectMapper().writeValue(writer, zkDump);
 			writer.close();
 			client.close();
+			System.out.println("Done ZK metrics!");
 		}
 
 		if (cmd.hasOption("collect-solr-metrics")) {
-			CuratorFramework client = CuratorFrameworkFactory.newClient(zkhost, new RetryNTimes(3, 500));
-			String clusterStateOutput = null;
-			client.start();
-			List<String> solrHostURLs = getSolrURLs(client);
+			System.out.println("Started collecting Solr metrics...");
+			List<String> solrHostURLs = null;
 
-			for (String solrHost: solrHostURLs ) {
-				// System.out.println("Reading metrics from " + solrHost + "...");
-				String metricsOutput = fetchURL(solrHost + "/admin/metrics");
-				String metricsDir = outputDirectory + File.separatorChar + "solr" + File.separatorChar + "metrics";
-				new File(metricsDir).mkdirs();
-				FileUtils.write(
-						new File((metricsDir + File.separatorChar) + (solrHost.replaceAll("/", "_"))),
-						metricsOutput, Charset.forName("UTF-8"));
-
-				// System.out.println("Reading Cluster State through " + solrHost + "...");
-				clusterStateOutput = fetchURL(solrHost + "/admin/collections?action=CLUSTERSTATUS");
-				String clusterStateDir = outputDirectory + File.separatorChar + "solr" + File.separatorChar + "clusterstate";
-				new File(clusterStateDir).mkdirs();
-				FileUtils.write(
-						new File(clusterStateDir + File.separatorChar + (solrHost.replaceAll("/", "_"))),
-						clusterStateOutput, Charset.forName("UTF-8"));
+			if (directSolrUrls != null) {
+				solrHostURLs = Arrays.asList(directSolrUrls);
+			} else {
+				CuratorFramework client = CuratorFrameworkFactory.newClient(zkhost, new RetryNTimes(3, 500));
+				client.start();
+				solrHostURLs = getSolrURLs(client);
+				client.close();
 			}
 
-			if (clusterStateOutput != null) {
-				// Use the last fetched cluster state to now fetch segments and luke info:
-				Map<String, Object> cluster = new ObjectMapper().readValue(clusterStateOutput, Map.class);
-				Map<String, Map> collections = ((Map<String, Map>)cluster.get("cluster")).get("collections");
-				for (String collectionName: collections.keySet()) {
-					Map coll = collections.get(collectionName);
-					Map<String, Map> shards = (Map<String, Map>)coll.get("shards");
-					for (String shardName: shards.keySet()) {
-						Map<String, Map> shard = (Map<String, Map>) shards.get(shardName);
-						Map<String, Map<String, String>> replicas = (Map<String, Map<String, String>>)shard.get("replicas");
-						for (String coreNodeName: replicas.keySet()) {
-							Map<String, String> replica = replicas.get(coreNodeName);
-							boolean leader = Boolean.valueOf(replica.get("leader"));
-							if (!leader) continue;
-							String core = replica.get("core");
-							String baseUrl = replica.get("base_url");
-							// Fetch
-							String segmentsOutput = fetchURL(baseUrl + "/" + core + "/admin/segments");
-							String lukeOutput = fetchURL(baseUrl + "/" + core + "/admin/luke");
-							// Write
-							String coresInfoDir = outputDirectory + File.separatorChar + "solr" + File.separatorChar + "cores";
-							new File(coresInfoDir).mkdirs();
-							FileUtils.write(
-									new File(coresInfoDir + File.separatorChar + core+"_segments"),
-									segmentsOutput, Charset.forName("UTF-8"));
-							FileUtils.write(
-									new File(coresInfoDir + File.separatorChar + core+"_luke"),
-									lukeOutput, Charset.forName("UTF-8"));
-						}
+			System.out.println("Solr URLs are: " + solrHostURLs);
+			for (String solrHost: solrHostURLs ) {
+				if (solrHost.endsWith("/solr") == false) {
+					solrHost += solrHost.endsWith("/")? "solr": "/solr";
+				}
+
+				collectSolrNodeLevelEndpoint("metrics", solrHost + "/admin/metrics", solrHost, outputDirectory);
+				collectSolrNodeLevelEndpoint("threads", solrHost + "/admin/info/threads", solrHost, outputDirectory);
+				if (!disableExpensiveOps) {
+					collectSolrNodeLevelEndpoint("logs", solrHost + "/admin/info/logging?since=" + LocalDateTime.now().minusDays(1).toEpochSecond(ZoneOffset.UTC), solrHost, outputDirectory);
+				}
+				collectSolrNodeLevelEndpoint("clusterstate", solrHost + "/admin/collections?action=CLUSTERSTATUS", solrHost, outputDirectory);
+				collectSolrNodeLevelEndpoint("overseer", solrHost + "/admin/collections?action=OVERSEERSTATUS", solrHost, outputDirectory);
+				String coresOutput = collectSolrNodeLevelEndpoint("cores", solrHost + "/admin/cores", solrHost, outputDirectory);
+
+				for (String core: ((Map<String, Object>)new ObjectMapper().readValue(coresOutput, Map.class).get("status")).keySet()) {
+					String coresInfoDir = outputDirectory + File.separatorChar + "solr" + File.separatorChar + "cores";
+					new File(coresInfoDir).mkdirs();
+
+					System.out.println("\tFor core " + core);
+					for (String adminEndpoint: new String[] {"segments", disableExpensiveOps? null: "luke", "plugins"}) {
+						if (adminEndpoint==null) continue;
+						System.out.println("\t\tReading " + adminEndpoint + "...");
+						String output = fetchURL(solrHost + "/" + core + "/admin/" + adminEndpoint);
+						FileUtils.write(new File(coresInfoDir + File.separatorChar + core + "_" + adminEndpoint), output, Charset.forName("UTF-8"));
 					}
 				}
 			}
-
-			client.close();
 		}    	
 	}
+
+	private static String collectSolrNodeLevelEndpoint(String item, String endpoint, String solrHost, String outputDirectory) throws MalformedURLException, ProtocolException, IOException {
+		System.out.println("Reading " + item + " from " + solrHost + "...");
+		String output = fetchURL(endpoint);
+		String dir = outputDirectory + File.separatorChar + "solr" + File.separatorChar + item;
+		new File(dir).mkdirs();
+		FileUtils.write(
+				new File((dir + File.separatorChar) + (solrHost.replaceAll("/", "_"))),
+				output, Charset.forName("UTF-8"));
+		return output;
+	}
+
 
 	private static Map<String, String> dumpZkData(CuratorFramework client, String initialPath) throws Exception {
 		Map<String, String> zkDump = new LinkedHashMap<>();
@@ -151,6 +161,7 @@ public class SearchInsightsCollector
 	}
 
 	private static String fetchURL(String endpoint) throws IOException, MalformedURLException, ProtocolException {
+		endpoint += endpoint.contains("?")? "&_=searchscale": "?_=searchscale";
 		HttpURLConnection con = (HttpURLConnection) new URL(endpoint).openConnection();
 		con.setRequestMethod("GET");
 
@@ -178,12 +189,22 @@ public class SearchInsightsCollector
 		return solrHostURLs;
 	}
 
-	private static String getZKHosts(CommandLine cmd, String zkhost) throws ParseException {
+	private static String getZKHost(CommandLine cmd) throws ParseException {
+		String zkhost = null;
 		if(cmd.hasOption("c")) {
 			zkhost = cmd.getOptionValue("c");
 			System.out.println("ZK host is: " + zkhost);
 		}
 		return zkhost;
+	}
+
+	private static String[] getDirectSolrURLs(CommandLine cmd) throws ParseException {
+		String urls[] = null;
+		if(cmd.hasOption("d")) {
+			String arg = cmd.getOptionValue("d");
+			urls = arg.split(",");
+		}
+		return urls;
 	}
 
 }

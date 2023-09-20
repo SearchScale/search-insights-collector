@@ -1,5 +1,5 @@
 ################### OPTIONS PARSING #####################
-VALID_ARGS=$(getopt -o hszc: --long collect-host-metrics,collect-solr-metrics,collect-zk-metrics,zkhost: -- "$@")
+VALID_ARGS=$(getopt -o ehszcdn: --long disable-expensive-operations,collect-host-metrics,collect-solr-metrics,collect-zk-metrics,zkhost: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1;
 fi
@@ -9,6 +9,11 @@ JAVA_OPTS=""
 eval set -- "$VALID_ARGS"
 while [ : ]; do
   case "$1" in
+    -e | --disable-expensive-operations)
+        DISABLE_EXPENSIVE="True"
+        JAVA_OPTS="$JAVA_OPTS --disable-expensive-operations"
+        shift
+        ;;
     -h | --collect-host-metrics)
         HOST_METRICS="True"
         JAVA_OPTS="$JAVA_OPTS --collect-host-metrics"
@@ -24,6 +29,17 @@ while [ : ]; do
         ;;
     -c | --zkhost)
         ZKHOST=$2
+        JAVA_OPTS="$JAVA_OPTS -c $ZKHOST"
+        shift 2
+        ;;
+    -d )
+        SOLRURLS=$2
+        JAVA_OPTS="$JAVA_OPTS -d $SOLRURLS"
+        shift 2
+        ;;
+    -n )
+        CLUSTERNAME=$2
+        JAVA_OPTS="$JAVA_OPTS --cluster-name $CLUSTERNAME"
         shift 2
         ;;
     --) shift; 
@@ -32,20 +48,20 @@ while [ : ]; do
   esac
 done
 
-
 ############ INIT ###############
+echo "Arguments: $JAVA_OPTS"
+if [ -z "$CLUSTERNAME" ]; then
+  prefix="collector"
+else
+  prefix="$CLUSTERNAME"
+fi
 TIMESTAMP=`date +"%Y_%m_%d-%H_%M_%S"`_$RANDOM
-OUTDIR=searchinsights-$TIMESTAMP
-
-echo "ZK Host: $ZKHOST"
-
+OUTDIR="$prefix-$TIMESTAMP"
 mkdir -p $OUTDIR
 
 ################ COMPUTE THE HOST METRICS #######################
-
 if [[ "True" == "$HOST_METRICS" ]];
 then
-
 	mkdir -p $OUTDIR/host
 
 	c=0
@@ -55,21 +71,20 @@ then
 	  if ! (( $c % 2 )) ; then
 	    key=$prevLine
 	    cmd=$line
-	    # echo "Command: $cmd..."
 	    $cmd >> $OUTDIR/host/$key.txt
-	    echo "Written $OUTDIR/host/$key.txt file"
+	    #echo "Written $OUTDIR/host/$key.txt file"
 	  fi
-	
 	  prevLine=$line
 	done < <(jq -r ".|to_entries[][]" host-metrics.json)
+  echo "Done collecting host metrics in $OUTDIR/host directory"
 fi
 
 ######### COMPUTE THE SOLR and ZOOKEEPER METRICS ############
-java -cp search-insights-collector-0.7-jar-with-dependencies.jar:target/search-insights-collector-0.7-jar-with-dependencies.jar:. \
-         com.searchscale.insights.SearchInsightsCollector -c $ZKHOST --output-directory $OUTDIR $JAVA_OPTS
+java -cp search-insights-collector-0.8-jar-with-dependencies.jar:target/search-insights-collector-0.8-jar-with-dependencies.jar:. \
+         com.searchscale.insights.SearchInsightsCollector --output-directory $OUTDIR $JAVA_OPTS
 
 ############ PREPARE THE TARBALL ###############
-filename="collector-$TIMESTAMP.tar"
+filename="$prefix-$TIMESTAMP.tar"
 mkdir -p archives
 tar -cf archives/$filename $OUTDIR
 gzip archives/$filename

@@ -4,7 +4,7 @@
   <groupId>com.searchscale.insights</groupId>
   <artifactId>search-insights-collector</artifactId>
   <packaging>jar</packaging>
-  <version>0.7</version>
+  <version>0.8</version>
   <name>search-insights-collector</name>
   <url>http://maven.apache.org</url>
   <dependencies>
@@ -59,7 +59,18 @@
           <target>1.8</target>
         </configuration>
       </plugin>
-
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-jar-plugin</artifactId>
+    <configuration>
+        <archive>                   
+            <manifest>
+                <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+            </manifest>
+        </archive>
+    </configuration>
+</plugin>
          <plugin>
             <artifactId>maven-assembly-plugin</artifactId>
             <executions>
@@ -75,6 +86,8 @@
                <archive>
                   <manifest>
                      <mainClass>com.searchscale.SearchInsightsCollector</mainClass>
+                     <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                     <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
                   </manifest>
                </archive>
                <descriptorRefs>
