@@ -26,6 +26,15 @@ Notes:
 * To disable collection of logs and field metrics (Luke), you can add `--disable-expensive-operations` parameter
 * If you have multiple Solr clusters, you can specify `-n <clustername>` parameter to ensure the generated file contains the cluster name in prefix. The name shouldn't contain spaces or special characters (other than '-').
 
+Authenticated Solr Clusters:
+
+If your Solr cluster is protected with Basic Authentication, then export the username and password to access the Solr cluster to the following environemnt variables before executing the collector: INSIGHTS_COLLECTOR_USERNAME and INSIGHTS_COLLECTOR_PASSWORD.
+
+Example:
+
+    export INSIGHTS_COLLECTOR_USERNAME=hello
+    export INSIGHTS_COLLECTOR_PASSWORD=world
+
 Outputs
 -------
 
