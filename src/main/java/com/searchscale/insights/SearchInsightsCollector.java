@@ -71,7 +71,9 @@ public class SearchInsightsCollector
 		}
 
 		String collectorVersion = (SearchInsightsCollector.class.getPackage().getImplementationVersion());
-		FileUtils.write(new File(outputDirectory + File.separatorChar + "collector.properties"), "collector-version=" + collectorVersion + "\n", Charset.forName("UTF-8"));
+		FileUtils.write(new File(outputDirectory + File.separatorChar + "collector.properties"), 
+				"collector-version=" + collectorVersion + "\n" + "cluster-name=" + (cmd.hasOption("n") ? cmd.getOptionValue("n"): ""),
+				Charset.forName("UTF-8"));
 		if (cmd.hasOption("collect-zk-metrics")) {
 			if (zkhost == null || zkhost.isBlank()) throw new RuntimeException("--collect-zk-metrics was specified but ZK host (-c / --zkhost) not specified.");
 			System.out.println("Started collecting ZK metrics...");
