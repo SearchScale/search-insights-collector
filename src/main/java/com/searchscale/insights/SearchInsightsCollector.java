@@ -8,12 +8,14 @@ import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -181,6 +183,13 @@ public class SearchInsightsCollector
 		endpoint += endpoint.contains("?")? "&_=searchscale": "?_=searchscale";
 		HttpURLConnection con = (HttpURLConnection) new URL(endpoint).openConnection();
 		con.setRequestMethod("GET");
+
+		if (System.getenv("INSIGHTS_COLLECTOR_USERNAME") != null && System.getenv("INSIGHTS_COLLECTOR_PASSWORD") != null) {
+			String auth = System.getenv("INSIGHTS_COLLECTOR_USERNAME") + ":" + System.getenv("INSIGHTS_COLLECTOR_PASSWORD");
+			byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
+			String authHeaderValue = "Basic " + new String(encodedAuth);
+			con.setRequestProperty("Authorization", authHeaderValue);
+		}
 
 		String metricsOutput = IOUtils.toString(con.getInputStream(), "UTF-8");
 		return metricsOutput;
