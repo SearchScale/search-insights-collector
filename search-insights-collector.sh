@@ -1,5 +1,5 @@
 ################### OPTIONS PARSING #####################
-VALID_ARGS=$(getopt -o ehszcdn: --long disable-expensive-operations,collect-host-metrics,collect-solr-metrics,collect-zk-metrics,zkhost: -- "$@")
+VALID_ARGS=$(getopt -o ehszc:d:n:k: --long disable-expensive-operations,collect-host-metrics,collect-solr-metrics,collect-zk-metrics,zkhost:,keys:,cluster-name: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1;
 fi
@@ -37,9 +37,14 @@ while [ : ]; do
         JAVA_OPTS="$JAVA_OPTS -d $SOLRURLS"
         shift 2
         ;;
-    -n )
+    -n | --cluster-name)
         CLUSTERNAME=$2
         JAVA_OPTS="$JAVA_OPTS --cluster-name $CLUSTERNAME"
+        shift 2
+        ;;
+    -k | --keys)
+        KEYS=$2
+        JAVA_OPTS="$JAVA_OPTS --keys $KEYS"
         shift 2
         ;;
     --) shift; 

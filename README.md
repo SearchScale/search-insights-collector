@@ -25,6 +25,7 @@ Notes:
 * To supply Solr URLs directly, use `-d` parameter. If not specified, Solr URLs will be looked up in live_nodes of ZooKeeper (if `--zkhost` is specified)
 * To disable collection of logs and field metrics (Luke), you can add `--disable-expensive-operations` parameter
 * If you have multiple Solr clusters, you can specify `-n <clustername>` parameter to ensure the generated file contains the cluster name in prefix. The name shouldn't contain spaces or special characters (other than '-').
+* If you have additional metadata, e.g. datacenter name, availability zone etc., pass them using `-k datacenter=dc1,az=abc`.
 
 Authenticated Solr Clusters:
 

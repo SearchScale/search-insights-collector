@@ -48,6 +48,7 @@ public class SearchInsightsCollector
 		options.addOption("z", "collect-zk-metrics",   false, "Collect ZK Metrics");
 		options.addOption("e", "disable-expensive-operations",   false, "Don't collect Luke, logs etc.");
 		options.addOption("n", "cluster-name",   true, "Name of the cluster (no spaces)");
+		options.addOption("k", "keys",   true, "Additional metadata keys");
 		options.addRequiredOption("o", "output-directory", true, "Output Directory");
 
 		CommandLineParser parser = new DefaultParser();
@@ -72,7 +73,9 @@ public class SearchInsightsCollector
 
 		String collectorVersion = (SearchInsightsCollector.class.getPackage().getImplementationVersion());
 		FileUtils.write(new File(outputDirectory + File.separatorChar + "collector.properties"), 
-				"collector-version=" + collectorVersion + "\n" + "cluster-name=" + (cmd.hasOption("n") ? cmd.getOptionValue("n"): ""),
+				"collector-version=" + collectorVersion + "\n" 
+		        + "cluster-name=" + (cmd.hasOption("n") ? cmd.getOptionValue("n"): "") + "\n"
+		        + (cmd.hasOption("k") ? String.join("\n", Arrays.asList(cmd.getOptionValue("k").split(","))): "") + "\n",
 				Charset.forName("UTF-8"));
 		if (cmd.hasOption("collect-zk-metrics")) {
 			if (zkhost == null || zkhost.isBlank()) throw new RuntimeException("--collect-zk-metrics was specified but ZK host (-c / --zkhost) not specified.");
