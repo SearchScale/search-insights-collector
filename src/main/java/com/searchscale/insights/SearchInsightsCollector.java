@@ -55,8 +55,6 @@ public class SearchInsightsCollector
 
 	public static void main( String[] args ) throws Exception
 	{
-		
-		
 		CommandLine cmd = getParsedCLICommands(args);
 		String zkhost = getZKHost(cmd);
 		String directSolrUrls[] = getDirectSolrURLs(cmd);
@@ -115,30 +113,49 @@ public class SearchInsightsCollector
 				collectSolrNodeLevelEndpoint("overseer", solrHost + "/admin/collections?action=OVERSEERSTATUS", solrHost, outputDirectory);
 				String coresOutput = collectSolrNodeLevelEndpoint("cores", solrHost + "/admin/cores", solrHost, outputDirectory);
 
-				for (String core: ((Map<String, Object>)new ObjectMapper().readValue(coresOutput, Map.class).get("status")).keySet()) {
-					String coresInfoDir = outputDirectory + File.separatorChar + "solr" + File.separatorChar + "cores";
-					new File(coresInfoDir).mkdirs();
+				try {
+					for (String core: ((Map<String, Object>)new ObjectMapper().readValue(coresOutput, Map.class).get("status")).keySet()) {
+						String coresInfoDir = outputDirectory + File.separatorChar + "solr" + File.separatorChar + "cores";
+						new File(coresInfoDir).mkdirs();
 
-					System.out.println("\tFor core " + core);
-					for (String adminEndpoint: new String[] {"segments", disableExpensiveOps? null: "luke", "plugins"}) {
-						if (adminEndpoint==null) continue;
-						System.out.println("\t\tReading " + adminEndpoint + "...");
-						String output = fetchURL(solrHost + "/" + core + "/admin/" + adminEndpoint);
-						FileUtils.write(new File(coresInfoDir + File.separatorChar + core + "_" + adminEndpoint), output, Charset.forName("UTF-8"));
+						System.out.println("\tFor core " + core);
+						for (String adminEndpoint: new String[] {"segments", disableExpensiveOps? null: "luke", "plugins"}) {
+							if (adminEndpoint==null) continue;
+							System.out.println("\t\tReading " + adminEndpoint + "...");
+							String output = fetchURL(solrHost + "/" + core + "/admin/" + adminEndpoint);
+							FileUtils.write(new File(coresInfoDir + File.separatorChar + core + "_" + adminEndpoint), output, Charset.forName("UTF-8"));
+						}
 					}
+				} catch (Exception ex) {
+					ex.printStackTrace();
+					String errorsDir = outputDirectory + File.separatorChar + "solr" + File.separatorChar + "errors";
+					new File(errorsDir).mkdirs();
+					FileUtils.writeStringToFile(new File(errorsDir + File.separatorChar + Instant.now().toEpochMilli() + ".txt"), new ObjectMapper().writeValueAsString(ex), Charset.forName("UTF-8"));
 				}
 			}
 		}    	
 	}
 
-	private static String collectSolrNodeLevelEndpoint(String item, String endpoint, String solrHost, String outputDirectory) throws MalformedURLException, ProtocolException, IOException {
+	private static String collectSolrNodeLevelEndpoint(String item, String endpoint, String solrHost, String outputDirectory) throws JsonProcessingException {
 		System.out.println("Reading " + item + " from " + solrHost + "...");
-		String output = fetchURL(endpoint);
+		String output;
+		try {
+			output = fetchURL(endpoint);
+		} catch (IOException e) {
+			e.printStackTrace();
+
+			// if there's a problem accessing the endpoint, write the exception in the collector output
+			output = new ObjectMapper().writeValueAsString(e);
+		}
 		String dir = outputDirectory + File.separatorChar + "solr" + File.separatorChar + item;
 		new File(dir).mkdirs();
-		FileUtils.write(
-				new File((dir + File.separatorChar) + (solrHost.replaceAll("/", "_"))),
-				output, Charset.forName("UTF-8"));
+		try {
+			FileUtils.write(
+					new File((dir + File.separatorChar) + (solrHost.replaceAll("/", "_"))),
+					output, Charset.forName("UTF-8"));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		return output;
 	}
 
