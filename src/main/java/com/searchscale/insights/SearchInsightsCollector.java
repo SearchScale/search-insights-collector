@@ -74,6 +74,7 @@ public class SearchInsightsCollector
 		String collectorVersion = (SearchInsightsCollector.class.getPackage().getImplementationVersion());
 		FileUtils.write(new File(outputDirectory + File.separatorChar + "collector.properties"), 
 				"collector-version=" + collectorVersion + "\n" 
+				+ "timestamp=" + Instant.now().toEpochMilli() + "\n" 
 		        + "cluster-name=" + (cmd.hasOption("n") ? cmd.getOptionValue("n"): "") + "\n"
 		        + (cmd.hasOption("k") ? String.join("\n", Arrays.asList(cmd.getOptionValue("k").split(","))): "") + "\n",
 				Charset.forName("UTF-8"));
