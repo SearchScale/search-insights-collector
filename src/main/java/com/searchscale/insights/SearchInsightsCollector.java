@@ -47,7 +47,7 @@ public class SearchInsightsCollector
 		options.addOption("s", "collect-solr-metrics", false, "Collect Solr Metrics");
 		options.addOption("z", "collect-zk-metrics",   false, "Collect ZK Metrics");
 		options.addOption("e", "disable-expensive-operations",   false, "Don't collect Luke, logs etc.");
-		options.addOption("n", "cluster-name",   true, "Name of the cluster (no spaces)");
+		options.addRequiredOption("n", "cluster-name",   true, "Name of the cluster (no spaces)");
 		options.addOption("k", "keys",   true, "Additional metadata keys");
 		options.addRequiredOption("o", "output-directory", true, "Output Directory");
 
@@ -79,7 +79,7 @@ public class SearchInsightsCollector
 		        + (cmd.hasOption("k") ? String.join("\n", Arrays.asList(cmd.getOptionValue("k").split(","))): "") + "\n",
 				Charset.forName("UTF-8"));
 		if (cmd.hasOption("collect-zk-metrics")) {
-			if (zkhost == null || zkhost.isBlank()) throw new RuntimeException("--collect-zk-metrics was specified but ZK host (-c / --zkhost) not specified.");
+			if (zkhost == null || zkhost.isEmpty()) throw new RuntimeException("--collect-zk-metrics was specified but ZK host (-c / --zkhost) not specified.");
 			System.out.println("Started collecting ZK metrics...");
 			CuratorFramework client = CuratorFrameworkFactory.newClient(zkhost, new RetryNTimes(3, 500));
 			client.start();
