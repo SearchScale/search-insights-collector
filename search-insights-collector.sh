@@ -85,7 +85,7 @@ then
 fi
 
 ######### COMPUTE THE SOLR and ZOOKEEPER METRICS ############
-java -cp search-insights-collector-0.8-jar-with-dependencies.jar:target/search-insights-collector-0.8-jar-with-dependencies.jar:. \
+java -cp search-insights-collector-0.8.1-jar-with-dependencies.jar:target/search-insights-collector-0.8.1-jar-with-dependencies.jar:. \
          com.searchscale.insights.SearchInsightsCollector --output-directory $OUTDIR $JAVA_OPTS
 
 ############ PREPARE THE TARBALL ###############
