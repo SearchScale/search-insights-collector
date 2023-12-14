@@ -3,10 +3,12 @@ package com.searchscale.insights;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.ProtocolException;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -27,7 +29,6 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryNTimes;
@@ -145,11 +146,18 @@ public class SearchInsightsCollector
 	}
 
 	private static String collectSolrNodeLevelEndpoint(String item, String endpoint, String solrHost, String outputDirectory) throws JsonProcessingException {
+		if (System.getenv("INSIGHTS_COLLECTOR_USERNAME") != null && System.getenv("INSIGHTS_COLLECTOR_PASSWORD") != null) {
+			System.out.println("Trying to use basic authentication to connect to the cluster: "
+					+ "user=" + System.getenv("INSIGHTS_COLLECTOR_USERNAME") +
+					", pass="+"*".repeat(System.getenv("INSIGHTS_COLLECTOR_PASSWORD").length()));
+		} else {
+			System.out.println("Trying to connect to Solr cluster without authentication (INSIGHTS_COLLECTOR_USERNAME and/or INSIGHTS_COLLECTOR_PASSWORD not specified)");
+		}
 		System.out.println("Reading " + item + " from " + solrHost + "...");
 		String output;
 		try {
 			output = fetchURL(endpoint);
-		} catch (IOException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 
 			// if there's a problem accessing the endpoint, write the exception in the collector output
@@ -185,20 +193,25 @@ public class SearchInsightsCollector
 		return zkDump;
 	}
 
-	private static String fetchURL(String endpoint) throws IOException, MalformedURLException, ProtocolException {
+	private static String fetchURL(String endpoint) throws URISyntaxException, IOException, InterruptedException {
 		endpoint += endpoint.contains("?")? "&_=searchscale": "?_=searchscale";
-		HttpURLConnection con = (HttpURLConnection) new URL(endpoint).openConnection();
-		con.setRequestMethod("GET");
-
+		HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+				  .uri(new URI(endpoint))
+				  .GET();
 		if (System.getenv("INSIGHTS_COLLECTOR_USERNAME") != null && System.getenv("INSIGHTS_COLLECTOR_PASSWORD") != null) {
 			String auth = System.getenv("INSIGHTS_COLLECTOR_USERNAME") + ":" + System.getenv("INSIGHTS_COLLECTOR_PASSWORD");
 			byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
 			String authHeaderValue = "Basic " + new String(encodedAuth);
-			con.setRequestProperty("Authorization", authHeaderValue);
+			requestBuilder.setHeader("Authorization", authHeaderValue);
 		}
-
-		String metricsOutput = IOUtils.toString(con.getInputStream(), "UTF-8");
-		return metricsOutput;
+		HttpResponse<String> response = HttpClient
+				  .newBuilder()
+				  .build()
+				  .send(requestBuilder.build(), BodyHandlers.ofString());
+		if (!(response.statusCode() >= 200 && response.statusCode()<300)) {
+			throw new RuntimeException("Problem accessing Solr: " + response.statusCode() + "\n" + response.body());
+		}
+		return response.body();
 	}
 
 	private static List<String> getSolrURLs(CuratorFramework client)
