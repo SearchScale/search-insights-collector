@@ -48,6 +48,15 @@ public class SearchInsightsCollector
 		options.addOption("s", "collect-solr-metrics", false, "Collect Solr Metrics");
 		options.addOption("z", "collect-zk-metrics",   false, "Collect ZK Metrics");
 		options.addOption("e", "disable-expensive-operations",   false, "Don't collect Luke, logs etc.");
+
+		// Individual operations can be disabled
+		options.addOption("g", "disable-segments", false, "Don't collect segments");
+		options.addOption("t", "disable-threads", false, "Don't collect threads");
+		options.addOption("p", "disable-plugins", false, "Don't collect plugins");
+		options.addOption("o", "disable-overseer", false, "Don't collect overseer info");
+		options.addOption("k", "disable-luke", false, "Don't collect luke");
+		options.addOption("l", "disable-logs", false, "Don't collect logs");
+
 		options.addRequiredOption("n", "cluster-name",   true, "Name of the cluster (no spaces)");
 		options.addOption("k", "keys",   true, "Additional metadata keys");
 		options.addRequiredOption("o", "output-directory", true, "Output Directory");
@@ -65,6 +74,14 @@ public class SearchInsightsCollector
 		boolean disableExpensiveOps = cmd.hasOption("disable-expensive-operations") ? true: false;
 		if (disableExpensiveOps) System.out.println("Expensive operations are disabled!");
 
+		boolean disableSegments = cmd.hasOption("disable-segments") ? true: false;
+		boolean disableThreads = cmd.hasOption("disable-threads") ? true: false;
+		boolean disablePlugins = cmd.hasOption("disable-plugins") ? true: false;
+		boolean disableOverseer = cmd.hasOption("disable-overseer") ? true: false;
+		boolean disableLuke = cmd.hasOption("disable-luke") ? true: false;
+		boolean disableLogs = cmd.hasOption("disable-logs") ? true: false;
+
+		
 		String outputDirectory = cmd.getOptionValue("o");
 		if (!(new File(outputDirectory).exists() && new File(outputDirectory).isDirectory())) {
 			if (new File(outputDirectory).mkdirs() == false) {
@@ -114,12 +131,12 @@ public class SearchInsightsCollector
 				}
 
 				collectSolrNodeLevelEndpoint("metrics", solrHost + "/admin/metrics", solrHost, outputDirectory);
-				collectSolrNodeLevelEndpoint("threads", solrHost + "/admin/info/threads", solrHost, outputDirectory);
+				if(!disableThreads) collectSolrNodeLevelEndpoint("threads", solrHost + "/admin/info/threads", solrHost, outputDirectory);
 				if (!disableExpensiveOps) {
-					collectSolrNodeLevelEndpoint("logs", solrHost + "/admin/info/logging?since=" + LocalDateTime.now().minusDays(1).toEpochSecond(ZoneOffset.UTC), solrHost, outputDirectory);
+					if(!disableLogs) collectSolrNodeLevelEndpoint("logs", solrHost + "/admin/info/logging?since=" + LocalDateTime.now().minusDays(1).toEpochSecond(ZoneOffset.UTC), solrHost, outputDirectory);
 				}
 				collectSolrNodeLevelEndpoint("clusterstate", solrHost + "/admin/collections?action=CLUSTERSTATUS", solrHost, outputDirectory);
-				collectSolrNodeLevelEndpoint("overseer", solrHost + "/admin/collections?action=OVERSEERSTATUS", solrHost, outputDirectory);
+				if(!disableOverseer) collectSolrNodeLevelEndpoint("overseer", solrHost + "/admin/collections?action=OVERSEERSTATUS", solrHost, outputDirectory);
 				String coresOutput = collectSolrNodeLevelEndpoint("cores", solrHost + "/admin/cores", solrHost, outputDirectory);
 
 				try {
@@ -128,7 +145,10 @@ public class SearchInsightsCollector
 						new File(coresInfoDir).mkdirs();
 
 						System.out.println("\tFor core " + core);
-						for (String adminEndpoint: new String[] {"segments", disableExpensiveOps? null: "luke", "plugins"}) {
+						for (String adminEndpoint: new String[] {
+								disableSegments? null: "segments", 
+								(disableExpensiveOps || disableLuke)? null: "luke", 
+								disablePlugins? null: "plugins"}) {
 							if (adminEndpoint==null) continue;
 							System.out.println("\t\tReading " + adminEndpoint + "...");
 							String output = fetchURL(solrHost + "/" + core + "/admin/" + adminEndpoint);
