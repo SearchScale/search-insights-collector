@@ -1,5 +1,5 @@
 ################### OPTIONS PARSING #####################
-VALID_ARGS=$(getopt -o ehszc:d:n:k: --long disable-expensive-operations,disable-segments,disable-threads,disable-plugins,disable-overseer,disable-luke,disable-logs,collect-host-metrics,collect-solr-metrics,collect-zk-metrics,zkhost:,keys:,cluster-name: -- "$@")
+VALID_ARGS=$(getopt -o ehszc:d:n:k: --long disable-expensive-operations,enable-plugins,collect-host-metrics,collect-solr-metrics,collect-zk-metrics,zkhost:,keys:,cluster-name: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit 1;
 fi
@@ -14,29 +14,8 @@ while [ : ]; do
         JAVA_OPTS="$JAVA_OPTS --disable-expensive-operations"
         shift
         ;;
-    --disable-segments)
-        JAVA_OPTS="$JAVA_OPTS --disable-segments"
-        shift
-        ;;
-    --disable-threads)
-        DISABLE_THREADS="True"
-        JAVA_OPTS="$JAVA_OPTS --disable-threads"
-        shift
-        ;;
-    --disable-plugins)
-        JAVA_OPTS="$JAVA_OPTS --disable-plugins"
-        shift
-        ;;
-    --disable-threads)
-        JAVA_OPTS="$JAVA_OPTS --disable-threads"
-        shift
-        ;;
-    --disable-luke)
-        JAVA_OPTS="$JAVA_OPTS --disable-luke"
-        shift
-        ;;
-    --disable-logs)
-        JAVA_OPTS="$JAVA_OPTS --disable-logs"
+    --enable-plugins)
+        JAVA_OPTS="$JAVA_OPTS --enable-plugins"
         shift
         ;;
     -h | --collect-host-metrics)
@@ -115,7 +94,7 @@ then
 fi
 
 ######### COMPUTE THE SOLR and ZOOKEEPER METRICS ############
-java -cp search-insights-collector-0.8.2-jar-with-dependencies.jar:target/search-insights-collector-0.8.2-jar-with-dependencies.jar:. \
+java -cp search-insights-collector-0.8.3-jar-with-dependencies.jar:target/search-insights-collector-0.8.3-jar-with-dependencies.jar:. \
          com.searchscale.insights.SearchInsightsCollector --output-directory $OUTDIR $JAVA_OPTS
 
 #echo "JAVAOPTS: $JAVA_OPTS"

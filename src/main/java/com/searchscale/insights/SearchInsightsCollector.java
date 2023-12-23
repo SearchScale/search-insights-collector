@@ -47,15 +47,10 @@ public class SearchInsightsCollector
 		options.addOption("h", "collect-host-metrics", false, "Collect Host Metrics");
 		options.addOption("s", "collect-solr-metrics", false, "Collect Solr Metrics");
 		options.addOption("z", "collect-zk-metrics",   false, "Collect ZK Metrics");
-		options.addOption("e", "disable-expensive-operations",   false, "Don't collect Luke, logs etc.");
+		options.addOption("e", "disable-expensive-operations",   false, "Don't collect Luke, logs, plugins etc.");
 
-		// Individual operations can be disabled
-		options.addOption("g", "disable-segments", false, "Don't collect segments");
-		options.addOption("t", "disable-threads", false, "Don't collect threads");
-		options.addOption("p", "disable-plugins", false, "Don't collect plugins");
-		options.addOption("o", "disable-overseer", false, "Don't collect overseer info");
-		options.addOption("k", "disable-luke", false, "Don't collect luke");
-		options.addOption("l", "disable-logs", false, "Don't collect logs");
+		// Individual operations can be enabled
+		options.addOption("p", "enable-plugins", false, "Collect plugins");
 
 		options.addRequiredOption("n", "cluster-name",   true, "Name of the cluster (no spaces)");
 		options.addOption("k", "keys",   true, "Additional metadata keys");
@@ -66,6 +61,7 @@ public class SearchInsightsCollector
 		return cmd;
 	}
 
+	@SuppressWarnings("unchecked")
 	public static void main( String[] args ) throws Exception
 	{
 		CommandLine cmd = getParsedCLICommands(args);
@@ -74,13 +70,7 @@ public class SearchInsightsCollector
 		boolean disableExpensiveOps = cmd.hasOption("disable-expensive-operations") ? true: false;
 		if (disableExpensiveOps) System.out.println("Expensive operations are disabled!");
 
-		boolean disableSegments = cmd.hasOption("disable-segments") ? true: false;
-		boolean disableThreads = cmd.hasOption("disable-threads") ? true: false;
-		boolean disablePlugins = cmd.hasOption("disable-plugins") ? true: false;
-		boolean disableOverseer = cmd.hasOption("disable-overseer") ? true: false;
-		boolean disableLuke = cmd.hasOption("disable-luke") ? true: false;
-		boolean disableLogs = cmd.hasOption("disable-logs") ? true: false;
-
+		boolean enablePlugins = cmd.hasOption("enable-plugins") ? true: false;
 		
 		String outputDirectory = cmd.getOptionValue("o");
 		if (!(new File(outputDirectory).exists() && new File(outputDirectory).isDirectory())) {
@@ -131,12 +121,12 @@ public class SearchInsightsCollector
 				}
 
 				collectSolrNodeLevelEndpoint("metrics", solrHost + "/admin/metrics", solrHost, outputDirectory);
-				if(!disableThreads) collectSolrNodeLevelEndpoint("threads", solrHost + "/admin/info/threads", solrHost, outputDirectory);
+				collectSolrNodeLevelEndpoint("threads", solrHost + "/admin/info/threads", solrHost, outputDirectory);
 				if (!disableExpensiveOps) {
-					if(!disableLogs) collectSolrNodeLevelEndpoint("logs", solrHost + "/admin/info/logging?since=" + LocalDateTime.now().minusDays(1).toEpochSecond(ZoneOffset.UTC), solrHost, outputDirectory);
+					collectSolrNodeLevelEndpoint("logs", solrHost + "/admin/info/logging?since=" + LocalDateTime.now().minusDays(1).toEpochSecond(ZoneOffset.UTC), solrHost, outputDirectory);
 				}
 				collectSolrNodeLevelEndpoint("clusterstate", solrHost + "/admin/collections?action=CLUSTERSTATUS", solrHost, outputDirectory);
-				if(!disableOverseer) collectSolrNodeLevelEndpoint("overseer", solrHost + "/admin/collections?action=OVERSEERSTATUS", solrHost, outputDirectory);
+				collectSolrNodeLevelEndpoint("overseer", solrHost + "/admin/collections?action=OVERSEERSTATUS", solrHost, outputDirectory);
 				String coresOutput = collectSolrNodeLevelEndpoint("cores", solrHost + "/admin/cores", solrHost, outputDirectory);
 
 				try {
@@ -146,9 +136,9 @@ public class SearchInsightsCollector
 
 						System.out.println("\tFor core " + core);
 						for (String adminEndpoint: new String[] {
-								disableSegments? null: "segments", 
-								(disableExpensiveOps || disableLuke)? null: "luke", 
-								disablePlugins? null: "plugins"}) {
+								"segments", 
+								disableExpensiveOps? null: "luke", 
+								disableExpensiveOps? null: (enablePlugins? "plugins" : null)}) {
 							if (adminEndpoint==null) continue;
 							System.out.println("\t\tReading " + adminEndpoint + "...");
 							String output = fetchURL(solrHost + "/" + core + "/admin/" + adminEndpoint);
@@ -198,14 +188,14 @@ public class SearchInsightsCollector
 
 	private static Map<String, String> dumpZkData(CuratorFramework client, String initialPath) throws Exception {
 		Map<String, String> zkDump = new LinkedHashMap<>();
-		Queue<String> queue = new ArrayDeque();
+		Queue<String> queue = new ArrayDeque<String>();
 		queue.offer(initialPath);
 		while (!queue.isEmpty()) {
 			String path = queue.remove();
 			byte dataBytes[] = client.getData().forPath(path);
 			String data = dataBytes == null? null: new String(dataBytes);
 			zkDump.put(path, data);
-			List<String> children = new ArrayList();
+			List<String> children = new ArrayList<String>();
 			for (String child: client.getChildren().forPath(path))
 				children.add((path.endsWith("/") ? path: (path + "/")) + child);
 			queue.addAll(children);
@@ -234,6 +224,7 @@ public class SearchInsightsCollector
 		return response.body();
 	}
 
+	@SuppressWarnings("unchecked")
 	private static List<String> getSolrURLs(CuratorFramework client)
 			throws Exception, JsonProcessingException, JsonMappingException {
 		List<String> solrHostURLs;
